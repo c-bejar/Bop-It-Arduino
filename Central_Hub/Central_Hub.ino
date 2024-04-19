@@ -2,9 +2,9 @@
 
   Arduino Uno R3 - Bop-It!
   CS 362 Project
+  Team 15
 
-  Central Hub of the Bop-It Game
-  You can choose player 1 and player 2 here
+  Central Hub of the Bop-It! Game
   You can start a game here
   You can determine a winner based on inputs and outputs received
 
@@ -18,6 +18,8 @@
 #define rxPin 5
 #define txPin 6
 
+int roundLength = 5000; // milliseconds
+
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
 const int rs = 13, en = 12, d4 = 11, d5 = 10, d6 = 9, d7 = 8;
@@ -29,9 +31,21 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 int buttonState = 0;  // for reading the pushbutton status
 bool startedGame = false; // to determine if game started
 
+// to be used for concurrent execution of code
 unsigned long startTime = 0;
-unsigned long currTime = 0;
 
+int roundDelay = 1000;  // delay between rounds
+int roundNumber = 1;    // counts number of rounds
+
+// to determine whether or not player one and two sent input
+bool receivedOne = false;
+bool receivedTwo = false;
+
+// player scores
+int p1Score = 0;
+int p2Score = 0;
+
+// set up software serial
 SoftwareSerial mySerial = SoftwareSerial(rxPin, txPin);
 
 // ######################################################### HELPER FUNCTIONS
@@ -69,71 +83,159 @@ void gameCountdown() {
 }
 
 int receivedSoftware() {
-  if (mySerial.available() > 0)
-  {
+  if (mySerial.available()) {
     String receive = mySerial.readStringUntil('\n');
-    Serial.println("Received: " + receive);
     return receive.toInt();
   }
   return -1;
 }
 
 int receivedHardware() {
-  if (Serial.available() > 0)
-  {
+  if (Serial.available()) {
     String receive = Serial.readStringUntil('\n');
-    Serial.println("Received: " + receive);
     return receive.toInt();
   }
   return -1;
+}
+
+// test to see if it can do both
+// might work
+int receivedData(Stream& serialPort) {
+ if (serialPort.available() > 0) {
+    String receive = serialPort.readStringUntil('\n');
+    return receive.toInt();
+ }
+ return -1;
+}
+
+void newRound(int round) {
+  int time = 3;
+  roundNumber++;
+  while (true) {
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("    Round " + String(round) + " In");
+    lcd.setCursor(0,1);
+    lcd.print("       " + String(time));
+    time--;
+    delay(roundDelay);
+    playBuzz(1500, 100);
+    if(time < 0) {playBuzz(2500, 100); break;}
+  }
+}
+
+//
+//  printLCD()
+//
+//  displays onto the LCD the current minigame, as well
+//  as the current scores of each player.
+//
+void printLCD(String game, int p1Score, int p2Score) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(game);
+  lcd.setCursor(0, 1);
+  lcd.print("P1: " + String(p1Score) + " P2: " + String(p2Score));
+}
+
+//
+//  determineGame(int game)
+//
+//  displays onto the LCD the current round's minigame.
+//  Takes a look at 0-7 to determine which game was selected.
+//
+String determineGame(int game) {
+  switch (game) {
+    case 0:
+      return "Press Red!";
+    case 1:
+      return "Press Green!";
+    case 2:
+      return "Press Blue!";
+    case 3:
+      return "Flick Up!";
+    case 4:
+      return "Flick Down!";
+    case 5:
+      return "Flick Left!";
+    case 6:
+      return "Flick Right!";
+    case 7:
+      return "Bop It!";
+    default:
+      return "Who Knows Bro";
+  }
+}
+
+void compileScores(int& p1Input, int& p2Input) {
+  // TODO:  add/sub scores from total
+
+}
+
+//
+//  gameLoop()
+//
+//  The main loop for the game when it's being played.
+//  Looped through this function until the game ends and
+//  a player is chosen to win.
+//
+bool gameLoop() {
+  while(true) {
+    int p1Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
+    int p2Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
+    // determine minigame to be played
+    int game = random(0, 8); // 0 - 7
+    // get string for current minigame
+    String currentMinigame = determineGame(game);
+    startTime = millis();
+    while(millis() - startTime <= roundLength) {
+      // print to screen relevant info
+      printLCD(currentMinigame, p1Score, p2Score);
+      //  TODO: send out command and get data from players
+      //        using p1Input and p2Input
+      //  TODO: Add score and break out of loop - IN PROGRESS
+      compileScores(p1Input, p2Input);
+    }
+    //  TODO: check if any player won; will break out of loop here as well.
+    // displays current round and timer
+    newRound(roundNumber);
+  }
 }
 
 // ################################################################### SETUP
 void setup() {
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
+  // set inputs and outputs
   pinMode(buttonPin, INPUT);
   pinMode(buzzerPin, OUTPUT);
-
   // SOFTWARE SERIAL
   // set up rx/tx pins as input/output
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
-
   // set the data rate for the SoftwareSerial port
   mySerial.begin(9600);
   Serial.begin(9600);
-
-  startTime = millis();
 }
 
 // #################################################################### LOOP
 void loop() {
-  receivedHardware();
-  return; // temporary return to test
-
   buttonState = digitalRead(buttonPin);
   
   if(startedGame) {
-    gameCountdown();
-    while(true) {
-      lcd.clear();
-      lcd.print("WE Gaming");
-      delay(1000);
-      startedGame = false;
-      break;
-    }
+    gameCountdown();  // counts 3 2 1 . . .
+    gameLoop();       // main game loop where gameplay happens
   // Before game is started
   } else {
     lcd.setCursor(0,0);
-    lcd.print("   Start Game?");
+    lcd.print("   Start Game?  ");
     lcd.setCursor(0,1);
-    lcd.print("   Press Start");
+    lcd.print("   Press Start  ");
     
     // Button pressed
     if(buttonState == HIGH)
     {
-      startedGame = true;
+      startedGame = true; // start game
     }
   }
 }
