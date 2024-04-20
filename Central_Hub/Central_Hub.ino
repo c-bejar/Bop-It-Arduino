@@ -38,6 +38,7 @@ bool startedGame = false; // to determine if game started
 
 // to be used for concurrent execution of code
 unsigned long startTime = 0;
+unsigned long prevTime = 0;
 
 int roundDelay = 1000;  // delay between rounds
 int roundNumber = 1;    // counts number of rounds
@@ -62,6 +63,7 @@ SoftwareSerial mySerial = SoftwareSerial(rxPin, txPin);
 //
 void playBuzz(int frequency, int duration) {
   tone(buzzerPin, frequency, duration);
+  delay(duration);
 }
 
 //
@@ -82,29 +84,14 @@ void gameCountdown() {
     lcd.print("       " + String(time));
     delay(1000); // one second
     time--;
-    playBuzz(1500, 100);
+    if (time >= 0)
+      playBuzz(1500, 100);
     if(time < 0) {playBuzz(2500, 250); break;}
   }
 }
 
-char receivedSoftware() {
-  if (mySerial.available()) {
-    return char(mySerial.read());
-  }
-  return 'F';
-}
-
-char receivedHardware() {
-  if (Serial.available()) {
-    return char(Serial.read());
-  }
-  return 'F';
-}
-
-// test to see if it can do both
-// might work
 char receivedData(Stream& serialPort) {
- if (serialPort.available() > 0) {
+ if (serialPort.available()) {
     return char(serialPort.read());
  }
  return 'F';
@@ -122,7 +109,7 @@ void newRound(int round) {
   while (true) {
     lcd.clear();
     lcd.setCursor(0,0);
-    lcd.print("    Round " + String(round) + " In");
+    lcd.print("  Round " + String(round) + " In");
     lcd.setCursor(0,1);
     lcd.print("       " + String(time));
     time--;
@@ -182,20 +169,33 @@ String determineGame(int game) {
 //  Also returns true/false if win by score difference.
 //
 void compileScores(char p1Input, char p2Input, int currGame) {
-  char currentGame = char(currGame);
+  // variable declarations for comparison
+  String currentGame = String(currGame);
+  String p1 = String(p1Input);
+  String p2 = String(p2Input);
   // change score values
-  if (currentGame == p1Input)
+  if (currentGame == p1)
     p1Score += addScore;
-  else if (p1Input == 'F')
-    p1Score -= nonScore;
-  else
+  else if (p1 == "U")
     p1Score -= negScore;
-  if (currentGame == p2Input)
-    p2Score += addScore;
-  else if (p2Input == 'F')
-    p2Score -= nonScore;
   else
+    p1Score -= nonScore;
+  if (currentGame == p2)
+    p2Score += addScore;
+  else if (p2 == "U")
     p2Score -= negScore;
+  else
+    p2Score -= nonScore;
+
+  // Keep scores capped between 0 - max score
+  if (p1Score >= maxScore)
+    p1Score = maxScore;
+  else if (p1Score <= 0)
+    p1Score = 0;
+  if (p2Score >= maxScore)
+    p2Score = maxScore;
+  else if (p2Score <= 0)
+    p2Score = 0;
 }
 
 //
@@ -208,8 +208,6 @@ void compileScores(char p1Input, char p2Input, int currGame) {
 int determineWinner() {
   // tied scores
   if (p1Score == p2Score) {
-    p1Score -= maxScore;
-    p2Score -= maxScore;
     return 0; // should this result in a tie game, or sub scores and continue?
   // one player is >= max score, so insta win
   } else if (p1Score >= maxScore || p2Score >= maxScore) {
@@ -235,22 +233,35 @@ int determineWinner() {
 //
 void gameLoop() {
   while(true) {
-    char p1Input = '0'; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
-    char p2Input = '0'; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
     // determine minigame to be played
     int game = random(0, 8); // 0 - 7
     // get string for current minigame
     String currentMinigame = determineGame(game);
-    startTime = millis();
+    // Send out minigame to controllers
+    mySerial.print(String(game));
+    // Serial.print(String(game));
+    // print to screen relevant info
+    printLCD(currentMinigame, p1Score, p2Score);
+    startTime = millis(); 
+    char p1Input = 'F';
+    char p2Input = 'F';
     while(millis() - startTime <= roundLength) {
-      // print to screen relevant info
-      printLCD(currentMinigame, p1Score, p2Score);
-      //  TODO: send out command and get data from players
-      //        using p1Input and p2Input
-      //  TODO+: Add score and break out of loop
-      // WE MIGHT WANT TO CALL THE BELOW FUNCTION FROM RECEIVED DATA FUNCTIONS
-      // compileScores(p1Input, p2Input, game);
+      // receive controller 1 input
+      char dataOne = receivedData(mySerial);
+      char dataTwo = receivedData(Serial);
+      // check if received input from player 1
+      if (dataOne != 'F' && !receivedOne) {
+        p1Input = dataOne;
+        Serial.println(p1Input);
+        receivedOne = true;
+      }
+      // check if received input from player 2
+      if (dataTwo != 'F' && !receivedTwo) {
+        p2Input = dataTwo;
+        receivedTwo = true;
+      }
     }
+    compileScores(p1Input, p2Input, game);
     int won = determineWinner();
     //  TODO: add win/loss screen to players if someone wins
     if (won == 1) {
@@ -262,6 +273,8 @@ void gameLoop() {
       startedGame = false;
       break;
     }
+    receivedOne = false;
+    receivedTwo = false;
     // displays current round and timer
     newRound(roundNumber);
   }
