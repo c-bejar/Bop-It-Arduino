@@ -19,14 +19,11 @@
 #define txPin 6
 
 int roundLength = 5000; // milliseconds
-int addScore = 25;      // score to add to player with correct input
-int negScore = 10;      // score to subtract to player with incorrect input
-int nonScore = 25;      // score to subtract to player with no input
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
 const int rs = 13, en = 12, d4 = 11, d5 = 10, d6 = 9, d7 = 8;
-const int buttonPin = 2;
+const int buttonPin =2;
 const int buzzerPin = 7;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
@@ -85,27 +82,30 @@ void gameCountdown() {
   }
 }
 
-char receivedSoftware() {
+int receivedSoftware() {
   if (mySerial.available()) {
-    return char(mySerial.read());
+    String receive = mySerial.readStringUntil('\n');
+    return receive.toInt();
   }
-  return 'F';
+  return -1;
 }
 
-char receivedHardware() {
+int receivedHardware() {
   if (Serial.available()) {
-    return char(Serial.read());
+    String receive = Serial.readStringUntil('\n');
+    return receive.toInt();
   }
-  return 'F';
+  return -1;
 }
 
 // test to see if it can do both
 // might work
-char receivedData(Stream& serialPort) {
+int receivedData(Stream& serialPort) {
  if (serialPort.available() > 0) {
-    return char(serialPort.read());
+    String receive = serialPort.readStringUntil('\n');
+    return receive.toInt();
  }
- return 'F';
+ return -1;
 }
 
 void newRound(int round) {
@@ -167,20 +167,8 @@ String determineGame(int game) {
   }
 }
 
-void compileScores(char p1Input, char p2Input, int currGame) {
-  char currentGame = char(currGame);
-  if (currentGame == p1Input)
-    p1Score += addScore;
-  else if (p1Input == 'F')
-    p1Score -= nonScore;
-  else
-    p1Score -= negScore;
-  if (currentGame == p2Input)
-    p2Score += addScore;
-  else if (p2Input == 'F')
-    p2Score -= nonScore;
-  else
-    p2Score -= negScore;
+void compileScores(int& p1Input, int& p2Input) {
+  // TODO:  add/sub scores from total
 
 }
 
@@ -193,8 +181,8 @@ void compileScores(char p1Input, char p2Input, int currGame) {
 //
 bool gameLoop() {
   while(true) {
-    char p1Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
-    char p2Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
+    int p1Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
+    int p2Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
     // determine minigame to be played
     int game = random(0, 8); // 0 - 7
     // get string for current minigame
@@ -206,10 +194,9 @@ bool gameLoop() {
       //  TODO: send out command and get data from players
       //        using p1Input and p2Input
       //  TODO: Add score and break out of loop - IN PROGRESS
-      compileScores(p1Input, p2Input, game);
+      compileScores(p1Input, p2Input);
     }
-    //  TODO: check if any player won; will break out of loop here
-    //        and set startedGame to false as well.
+    //  TODO: check if any player won; will break out of loop here as well.
     // displays current round and timer
     newRound(roundNumber);
   }
