@@ -19,9 +19,11 @@
 #define txPin 6
 
 int roundLength = 5000; // milliseconds
-int addScore = 25;      // score to add to player with correct input
-int negScore = 10;      // score to subtract to player with incorrect input
-int nonScore = 25;      // score to subtract to player with no input
+const int addScore = 25;      // score to add to player with correct input
+const int negScore = 10;      // score to subtract to player with incorrect input
+const int nonScore = 25;      // score to subtract to player with no input
+const int maxScore = 500;     // score needed for any given player to win
+const int diffScore = 100;    // score difference needed for any given player to win
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
@@ -108,6 +110,12 @@ char receivedData(Stream& serialPort) {
  return 'F';
 }
 
+//
+//  newRound(int round)
+//
+//  displays onto the LCD the current round number and
+//  counts down 3 2 1 . . .
+//
 void newRound(int round) {
   int time = 3;
   roundNumber++;
@@ -167,8 +175,15 @@ String determineGame(int game) {
   }
 }
 
+//
+//  compileScores(char p1Input, char p2Input, int currGame)
+//
+//  changes player scores depending on input received.
+//  Also returns true/false if win by score difference.
+//
 void compileScores(char p1Input, char p2Input, int currGame) {
   char currentGame = char(currGame);
+  // change score values
   if (currentGame == p1Input)
     p1Score += addScore;
   else if (p1Input == 'F')
@@ -184,6 +199,34 @@ void compileScores(char p1Input, char p2Input, int currGame) {
 }
 
 //
+//  determineWinner()
+//
+//  Determine Winner whether by max score or by
+//  difference in score. Returns 1 or 2 depending
+//  on who wins (1 = player 1 and 2 = player 2).
+//
+int determineWinner() {
+  // tied scores
+  if (p1Score == p2Score) {
+    p1Score -= maxScore;
+    p2Score -= maxScore;
+    return 0; // should this result in a tie game, or sub scores and continue?
+  // one player is >= max score, so insta win
+  } else if (p1Score >= maxScore || p2Score >= maxScore) {
+    if (p1Score > p2Score) {
+      return 1;
+    }
+    return 2;
+  // player wins by difference in scores
+  } else if (p1Score - p2Score >= diffScore) {
+    return 1;
+  } else if (p2Score - p1Score >= diffScore) {
+    return 2;
+  }
+  return 0; // game continues?
+}
+
+//
 //  gameLoop()
 //
 //  The main loop for the game when it's being played.
@@ -192,8 +235,8 @@ void compileScores(char p1Input, char p2Input, int currGame) {
 //
 void gameLoop() {
   while(true) {
-    char p1Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
-    char p2Input = 0; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
+    char p1Input = '0'; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
+    char p2Input = '0'; // TEMPORARY UNTIL WE CAN GET COMMUNICATION WORKING
     // determine minigame to be played
     int game = random(0, 8); // 0 - 7
     // get string for current minigame
@@ -204,11 +247,21 @@ void gameLoop() {
       printLCD(currentMinigame, p1Score, p2Score);
       //  TODO: send out command and get data from players
       //        using p1Input and p2Input
-      //  TODO: Add score and break out of loop - IN PROGRESS
-      compileScores(p1Input, p2Input, game);
+      //  TODO+: Add score and break out of loop
+      // WE MIGHT WANT TO CALL THE BELOW FUNCTION FROM RECEIVED DATA FUNCTIONS
+      // compileScores(p1Input, p2Input, game);
     }
-    //  TODO: check if any player won; will break out of loop here
-    //        and set startedGame to false as well.
+    int won = determineWinner();
+    //  TODO: add win/loss screen to players if someone wins
+    if (won == 1) {
+      // player 1 wins
+      startedGame = false;
+      break;
+    } else if (won == 2) {
+      // player 2 wins
+      startedGame = false;
+      break;
+    }
     // displays current round and timer
     newRound(roundNumber);
   }
