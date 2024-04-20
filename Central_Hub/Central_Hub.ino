@@ -176,16 +176,16 @@ void compileScores(char p1Input, char p2Input, int currGame) {
   // change score values
   if (currentGame == p1)
     p1Score += addScore;
-  else if (p1 == "U")
-    p1Score -= negScore;
-  else
+  else if (p1 == "F")
     p1Score -= nonScore;
+  else
+    p1Score -= negScore;
   if (currentGame == p2)
     p2Score += addScore;
-  else if (p2 == "U")
-    p2Score -= negScore;
-  else
+  else if (p2 == "F")
     p2Score -= nonScore;
+  else
+    p2Score -= negScore;
 
   // Keep scores capped between 0 - max score
   if (p1Score >= maxScore)
@@ -239,7 +239,7 @@ void gameLoop() {
     String currentMinigame = determineGame(game);
     // Send out minigame to controllers
     mySerial.print(String(game));
-    // Serial.print(String(game));
+    Serial.print(String(game));
     // print to screen relevant info
     printLCD(currentMinigame, p1Score, p2Score);
     startTime = millis(); 
@@ -252,7 +252,6 @@ void gameLoop() {
       // check if received input from player 1
       if (dataOne != 'F' && !receivedOne) {
         p1Input = dataOne;
-        Serial.println(p1Input);
         receivedOne = true;
       }
       // check if received input from player 2
@@ -291,6 +290,8 @@ void setup() {
   // set up rx/tx pins as input/output
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
+  // Random Seed
+  randomSeed(analogRead(0));
   // set the data rate for the SoftwareSerial port
   mySerial.begin(9600);
   Serial.begin(9600);
