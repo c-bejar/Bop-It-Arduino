@@ -285,9 +285,9 @@ void gameLoop() {
 }
 
 //
-//  winChime()
+//  playChime()
 //
-//  Simple "win" sound that will play at the end of a game
+//  Simple chime sound that will play when the game ends
 //
 void playChime(bool won) {
   if (won) {
@@ -361,9 +361,10 @@ void loop() {
     gameCountdown();  // counts 3 2 1 . . .
     gameLoop();       // main game loop where gameplay happens
     winScreen();      // shows in screen after game is over
-    // Reset scores
+    // Reset scores and round
     p1Score = 0;
     p2Score = 0;
+    roundNumber = 0;
     // Before game is started
   } else {
     lcd.setCursor(0, 0);
