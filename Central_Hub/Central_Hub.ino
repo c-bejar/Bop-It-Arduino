@@ -18,12 +18,12 @@
 #define rxPin 5
 #define txPin 6
 
-int roundLength = 5000; // milliseconds
-const int addScore = 25;      // score to add to player with correct input
-const int negScore = 10;      // score to subtract to player with incorrect input
-const int nonScore = 25;      // score to subtract to player with no input
-const int maxScore = 500;     // score needed for any given player to win
-const int diffScore = 100;    // score difference needed for any given player to win
+int roundLength = 5000;     // milliseconds
+const int addScore = 25;    // score to add to player with correct input
+const int negScore = 10;    // score to subtract to player with incorrect input
+const int nonScore = 25;    // score to subtract to player with no input
+const int maxScore = 500;   // score needed for any given player to win
+const int diffScore = 100;  // score difference needed for any given player to win
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
@@ -33,8 +33,8 @@ const int buzzerPin = 7;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
-int buttonState = 0;  // for reading the pushbutton status
-bool startedGame = false; // to determine if game started
+int buttonState = 0;       // for reading the pushbutton status
+bool startedGame = false;  // to determine if game started
 
 // to be used for concurrent execution of code
 unsigned long startTime = 0;
@@ -74,27 +74,36 @@ void playBuzz(int frequency, int duration) {
 //
 void gameCountdown() {
   int time = 3;
-  while(true)
-  {
+  while (true) {
     lcd.clear();
     //print out countdown on LCD
-    lcd.setCursor(0,0);
+    lcd.setCursor(0, 0);
     lcd.print(" START GAME IN");
-    lcd.setCursor(0,1);
+    lcd.setCursor(0, 1);
     lcd.print("       " + String(time));
-    delay(1000); // one second
+    delay(1000);  // one second
     time--;
     if (time >= 0)
       playBuzz(1500, 100);
-    if(time < 0) {playBuzz(2500, 250); break;}
+    if (time < 0) {
+      playBuzz(2500, 250);
+      break;
+    }
   }
 }
 
+//
+//  receivedData(Stream& serialPort)
+//
+//  The main function we use to receive data transmitted
+//  by the two other arduinos. We use Software and Hardware
+//  serial, so we can differentiate between them here.
+//
 char receivedData(Stream& serialPort) {
- if (serialPort.available()) {
+  if (serialPort.available()) {
     return char(serialPort.read());
- }
- return 'F';
+  }
+  return 'F';  // We received no input from any controller
 }
 
 //
@@ -103,19 +112,22 @@ char receivedData(Stream& serialPort) {
 //  displays onto the LCD the current round number and
 //  counts down 3 2 1 . . .
 //
-void newRound(int round) {
+void newRound() {
   int time = 3;
   roundNumber++;
   while (true) {
     lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("  Round " + String(round) + " In");
-    lcd.setCursor(0,1);
+    lcd.setCursor(0, 0);
+    lcd.print("  Round " + String(roundNumber) + " In");
+    lcd.setCursor(0, 1);
     lcd.print("       " + String(time));
     time--;
     delay(roundDelay);
     playBuzz(1500, 100);
-    if(time < 0) {playBuzz(2500, 100); break;}
+    if (time < 0) {
+      playBuzz(2500, 100);
+      break;
+    }
   }
 }
 
@@ -158,7 +170,7 @@ String determineGame(int game) {
     case 7:
       return "Bop It!";
     default:
-      return "Who Knows Bro";
+      return "ERROR";
   }
 }
 
@@ -176,13 +188,13 @@ void compileScores(char p1Input, char p2Input, int currGame) {
   // change score values
   if (currentGame == p1)
     p1Score += addScore;
-  else if (p1 == "F")
+  else if (p1 == "U")
     p1Score -= nonScore;
   else
     p1Score -= negScore;
   if (currentGame == p2)
     p2Score += addScore;
-  else if (p2 == "F")
+  else if (p2 == "U")
     p2Score -= nonScore;
   else
     p2Score -= negScore;
@@ -207,21 +219,22 @@ void compileScores(char p1Input, char p2Input, int currGame) {
 //
 int determineWinner() {
   // tied scores
-  if (p1Score == p2Score) {
-    return 0; // should this result in a tie game, or sub scores and continue?
-  // one player is >= max score, so insta win
-  } else if (p1Score >= maxScore || p2Score >= maxScore) {
+  if (p1Score == p2Score && p1Score >= maxScore) {
+    return 0;
+  }
+  // one score is greater than the other
+  if (p1Score >= maxScore || p2Score >= maxScore) {
     if (p1Score > p2Score) {
       return 1;
     }
     return 2;
-  // player wins by difference in scores
+    // player wins by difference in scores
   } else if (p1Score - p2Score >= diffScore) {
     return 1;
   } else if (p2Score - p1Score >= diffScore) {
     return 2;
   }
-  return 0; // game continues?
+  return 0;  // game continues?
 }
 
 //
@@ -232,9 +245,9 @@ int determineWinner() {
 //  a player is chosen to win.
 //
 void gameLoop() {
-  while(true) {
+  while (true) {
     // determine minigame to be played
-    int game = random(0, 8); // 0 - 7
+    int game = random(0, 8);  // 0 - 7
     // get string for current minigame
     String currentMinigame = determineGame(game);
     // Send out minigame to controllers
@@ -242,10 +255,10 @@ void gameLoop() {
     Serial.print(String(game));
     // print to screen relevant info
     printLCD(currentMinigame, p1Score, p2Score);
-    startTime = millis(); 
+    startTime = millis();
     char p1Input = 'F';
     char p2Input = 'F';
-    while(millis() - startTime <= roundLength) {
+    while (millis() - startTime <= roundLength) {
       // receive controller 1 input
       char dataOne = receivedData(mySerial);
       char dataTwo = receivedData(Serial);
@@ -262,7 +275,6 @@ void gameLoop() {
     }
     compileScores(p1Input, p2Input, game);
     int won = determineWinner();
-    //  TODO: add win/loss screen to players if someone wins
     if (won == 1) {
       // player 1 wins
       startedGame = false;
@@ -275,8 +287,39 @@ void gameLoop() {
     receivedOne = false;
     receivedTwo = false;
     // displays current round and timer
-    newRound(roundNumber);
+    newRound();
   }
+}
+
+//
+//  winChime()
+//
+//  Simple "win" sound that will play at the end of a game
+//
+void winChime() {
+  playBuzz(525, 300);
+  delay(300);
+  playBuzz(525, 125);
+  playBuzz(650, 125);
+  playBuzz(765, 125);
+  playBuzz(880, 250);
+}
+
+//
+//  winScreen()
+//
+//  Displays to the LCD the winner of the game. Waits a couple
+//  seconds after displaying and playing the win chime.
+//
+void winScreen() {
+  String winner = (p1Score > p2Score) ? "1" : "2";
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(" The winner is");
+  lcd.setCursor(0, 1);
+  lcd.print("   Player " + winner + "!");
+  winChime();
+  delay(5000);
 }
 
 // ################################################################### SETUP
@@ -300,21 +343,21 @@ void setup() {
 // #################################################################### LOOP
 void loop() {
   buttonState = digitalRead(buttonPin);
-  
-  if(startedGame) {
+
+  if (startedGame) {
     gameCountdown();  // counts 3 2 1 . . .
     gameLoop();       // main game loop where gameplay happens
-  // Before game is started
+    winScreen();      // shows in screen after game is over
+    // Before game is started
   } else {
-    lcd.setCursor(0,0);
+    lcd.setCursor(0, 0);
     lcd.print("   Start Game?  ");
-    lcd.setCursor(0,1);
+    lcd.setCursor(0, 1);
     lcd.print("   Press Start  ");
-    
+
     // Button pressed
-    if(buttonState == HIGH)
-    {
-      startedGame = true; // start game
+    if (buttonState == HIGH) {
+      startedGame = true;  // start game
     }
   }
 }
