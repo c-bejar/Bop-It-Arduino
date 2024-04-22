@@ -1,4 +1,4 @@
-//used for Arduino software serial connection
+//used for Arduino serial connection
 #include <SoftwareSerial.h>
 
 #define rxPin 13
@@ -64,6 +64,26 @@ void setup() {
 
 }
 
+void updateLED(char cmd) {
+  if(cmd == '0') {
+    digitalWrite(pinRed, HIGH);
+    digitalWrite(pinGreen, LOW);
+    digitalWrite(pinBlue, LOW);
+  } else if(cmd == '1') {
+    digitalWrite(pinRed, LOW);
+    digitalWrite(pinGreen, HIGH);
+    digitalWrite(pinBlue, LOW);
+  } else if(cmd == '2') {
+    digitalWrite(pinRed, LOW);
+    digitalWrite(pinGreen, LOW);
+    digitalWrite(pinBlue, HIGH);
+  } else {
+    digitalWrite(pinRed, LOW);
+    digitalWrite(pinGreen, LOW);
+    digitalWrite(pinBlue, LOW);
+  }
+}
+
 String checkCmd(int distance) {
   if(digitalRead(pushPin1) == HIGH) {
     return "2";
@@ -85,10 +105,10 @@ String checkCmd(int distance) {
     return "4";
   }
   if(yVal == 0) {
-    return "5";
+    return "6";
   }
   if(yVal == 255) {
-    return "6";
+    return "5";
   }
   if(distance <= 5.0) {
     return "7";
@@ -127,6 +147,7 @@ void loop() {
     startTime = millis();
     return;
   } else {
+    updateLED(receive[0]);
     float data = readSensor();
     String cmd = checkCmd(data);
     if(cmd != "U") {
