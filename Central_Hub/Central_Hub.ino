@@ -22,7 +22,7 @@ int roundLength = 5000;     // milliseconds
 const int addScore = 25;    // score to add to player with correct input
 const int negScore = 10;    // score to subtract to player with incorrect input
 const int nonScore = 25;    // score to subtract to player with no input
-const int maxScore = 500;   // score needed for any given player to win
+const int maxScore = 300;   // score needed for any given player to win
 const int diffScore = 100;  // score difference needed for any given player to win
 
 // initialize the library by associating any needed LCD interface pin
@@ -220,19 +220,16 @@ void compileScores(char p1Input, char p2Input, int currGame) {
 int determineWinner() {
   // tied scores
   if (p1Score == p2Score && p1Score >= maxScore) {
-    return 0;
+    return 1;
   }
   // one score is greater than the other
   if (p1Score >= maxScore || p2Score >= maxScore) {
-    if (p1Score > p2Score) {
-      return 1;
-    }
-    return 2;
+    return 1;
     // player wins by difference in scores
   } else if (p1Score - p2Score >= diffScore) {
     return 1;
   } else if (p2Score - p1Score >= diffScore) {
-    return 2;
+    return 1;
   }
   return 0;  // game continues?
 }
@@ -276,11 +273,7 @@ void gameLoop() {
     compileScores(p1Input, p2Input, game);
     int won = determineWinner();
     if (won == 1) {
-      // player 1 wins
-      startedGame = false;
-      break;
-    } else if (won == 2) {
-      // player 2 wins
+      // a player has won
       startedGame = false;
       break;
     }
@@ -296,13 +289,23 @@ void gameLoop() {
 //
 //  Simple "win" sound that will play at the end of a game
 //
-void winChime() {
-  playBuzz(525, 300);
-  delay(300);
-  playBuzz(525, 125);
-  playBuzz(650, 125);
-  playBuzz(765, 125);
-  playBuzz(880, 250);
+void playChime(bool won) {
+  if (won) {
+    playBuzz(525, 300);
+    delay(300);
+    playBuzz(525, 125);
+    playBuzz(650, 125);
+    playBuzz(765, 125);
+    playBuzz(880, 250);
+  } else {
+    playBuzz(880, 250);
+    playBuzz(725, 125);
+    playBuzz(650, 125);
+    playBuzz(525, 125);
+    delay(300);
+    playBuzz(525, 300);
+    delay(1000);
+  }
 }
 
 //
@@ -312,13 +315,23 @@ void winChime() {
 //  seconds after displaying and playing the win chime.
 //
 void winScreen() {
-  String winner = (p1Score > p2Score) ? "1" : "2";
+  String winner = "3";
+  if (p1Score > p2Score) {
+    winner = "1";
+  } else if (p2Score > p1Score) {
+    winner = "2";
+  }
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print(" The winner is");
   lcd.setCursor(0, 1);
-  lcd.print("   Player " + winner + "!");
-  winChime();
+  if (winner == "3") {
+    lcd.print("   No one :(");
+    playChime(false);
+  } else {
+    lcd.print("   Player " + winner + "!");
+    playChime(true);
+  }
   delay(5000);
 }
 
@@ -348,6 +361,9 @@ void loop() {
     gameCountdown();  // counts 3 2 1 . . .
     gameLoop();       // main game loop where gameplay happens
     winScreen();      // shows in screen after game is over
+    // Reset scores
+    p1Score = 0;
+    p2Score = 0;
     // Before game is started
   } else {
     lcd.setCursor(0, 0);
